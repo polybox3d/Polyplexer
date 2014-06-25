@@ -11,6 +11,7 @@
  *
  ******************************************************************/
 #include <unistd.h>
+#include <argp.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -23,9 +24,9 @@
 #include <fcntl.h>
 
 #include "Color.h"
+#include "arguments.h"
 
 #define FD_NUMBER 3
-#define ARG_SIZE 1024
 #define BUFFER_SIZE 1024*4
 #define DATA_READY 0
 #define DATA_CLEARED_OVERFLOW 42
@@ -244,6 +245,13 @@ int main(int argc, char* argv[])
 {
 
   /* INIT. & VARS. */
+  struct arguments args;
+  
+  arguments_init( &args );
+  if ( argp_parse (get_argp(), argc, argv, 0, 0, &args) )
+  {
+	  return EXIT_FAILURE;
+  }
 
   int timeout_msecs = 10;
 
@@ -255,16 +263,17 @@ int main(int argc, char* argv[])
   char* pos;
   int data_state=0;
 
-  /* Handle args  */
+/*
   if ( argc < 4 )
     {
       printf("Usage:  %s /serial/device /virtual/poly/pty /virtual/printer/pty\n\n", argv[0]);
       return 1;
     }
+*/
   /* Save device path/name */
-  strncpy(serial_name, argv[1], ARG_SIZE);
-  strncpy(virtu_poly_name,  argv[2], ARG_SIZE);
-  strncpy(virtu_printer_name,  argv[3], ARG_SIZE);
+  strncpy(serial_name, args.serial, ARG_SIZE);
+  strncpy(virtu_poly_name,  args.polybox_sock, ARG_SIZE);
+  strncpy(virtu_printer_name,  args.printer_sock, ARG_SIZE);
   
   /* Init file descriptor with non-null value */
   int idx;
