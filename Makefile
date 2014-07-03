@@ -1,6 +1,6 @@
 TARGET=PolyPlexer
 CC=gcc
-OBJECT= Color.o main.o
+OBJECT= Color.o arguments.o main.o
 CFLAGS=-W -Wall -g
 VERBOSE=no
 
@@ -28,6 +28,9 @@ gnuplot:
 
 Color.o : src/Color.c src/Color.h
 	$(CC) $(CFLAGS) -c src/Color.c
+
+arguments.o : src/arguments.c src/arguments.h
+	$(CC) $(CFLAGS) -c src/arguments.c
 
 
 main.o : src/main.c 
