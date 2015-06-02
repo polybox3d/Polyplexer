@@ -32,6 +32,7 @@
 #define DATA_CLEARED_OVERFLOW 42
 #define DATA_WAITING_MORE 1
 #define DATA_NOTHING_NEW 2
+#define DATA_END 4
 #define DATA_CLOSED 3
 #define DATA_ERROR 3
 
@@ -50,7 +51,11 @@ struct pollfd fds[FD_NUMBER];
 char input_buffer[FD_NUMBER][BUFFER_SIZE];
 char tmp_buffer[BUFFER_SIZE];
 int current_size[FD_NUMBER]={0,0,0};
-int baudrate = 115200;
+int current_pos[FD_NUMBER]={0,0,0};
+int eol_pos[FD_NUMBER]={0,0,0};
+int baudrate = 38400;
+//115200;
+//int baudrate = 76800;
 //int baudrate = 9600;
 int printer=2, poly=1, serial=0;
 int i;
@@ -70,6 +75,8 @@ void clear_stream(int fd_id)
 {
   memset(input_buffer[fd_id], 0, sizeof(input_buffer[fd_id]));
   current_size[fd_id] = 0;
+  current_pos[fd_id] = 0;
+  eol_pos[fd_id] = 0;
 }
 
 /*  Define a fd as a pty/serial file with a given baudrate.  */
@@ -133,6 +140,42 @@ int set_as_pty(int fd, int baudrate)
     return 0;
 }
 
+void process_line( int i /* file descriptor */, char* line, int size )
+{
+	int color = CYAN;
+	int dest;
+	if( i == printer )
+	{
+	  color = RED;
+	  dest = fds[serial].fd;
+	}
+	else if( i == serial )
+	{
+	  if ( line[0] == '#' )
+		{
+			color = GREEN;
+			dest = fds[poly].fd;
+		}
+	  else
+		{
+			color = BLUE;
+			dest = fds[printer].fd;
+		}
+	}
+	else if( i == poly )
+	{
+	  //			  eprintf("[poly]\n");
+	  color = YELLOW;
+	  dest = fds[serial].fd;
+	}
+	write( dest, line, size );
+	
+	color_text( color );
+	write( 1, line, size );
+	eprintf(".");
+	color_reset();
+}
+
 int read_stream(int fd_id)
 {
   int nbr_read=0;
@@ -153,7 +196,11 @@ int read_stream(int fd_id)
       else
 	{
 	  strcat( input_buffer[fd_id], tmp_buffer ); /*  We copy the tmp string inside the correct buffer */
-	  if ( input_buffer[fd_id][current_size[fd_id]-1] == '\n' || input_buffer[fd_id][current_size[fd_id]-1] == '\r' /*pos != NULL*/  /*|| pos2 != NULL*/ ) /* end found  */
+	  if ( input_buffer[fd_id][current_size[fd_id]-1] == 0 || input_buffer[fd_id][current_size[fd_id]-1] == '\n' || input_buffer[fd_id][current_size[fd_id]-1] == '\r' /*pos != NULL*/  /*|| pos2 != NULL*/ ) /* end found  */
+	    {
+	      return DATA_END;
+	    }
+	  else if (  strchr( input_buffer[serial], '\n') != NULL || strchr( input_buffer[serial], '\r') != NULL  )
 	    {
 	      return DATA_READY;
 	    }
@@ -260,8 +307,9 @@ int main(int argc, char* argv[])
   char virtu_printer_name[ARG_SIZE];
   char virtu_poly_name[ARG_SIZE];
   int polyplexer_on = 1;
-  char* pos;
   int data_state=0;
+  int read_line = 1;
+  char* pos_eol = NULL;
 
 /*
   if ( argc < 4 )
@@ -303,48 +351,26 @@ int main(int argc, char* argv[])
 	      if (fds[i].revents & POLLIN) 
 		{
 		  data_state = read_stream(i);
-		  if ( data_state == DATA_READY  )
+		  read_line = 1;
+		  if ( data_state == DATA_END || data_state == DATA_READY  )
 		    {
-		      if( i == printer )
-			{
-			  //eprintf("[printer]\n");
-			  color_text(RED);
-			  write( 1, input_buffer[printer], current_size[printer] );
-			  color_reset();
-			  write( fds[serial].fd, input_buffer[printer], current_size[printer]);
-			  clear_stream(printer);
-			}
-		      else if( i == serial )
-			{
-			  //			  eprintf("[serial]\n");
-			  pos = strchr( input_buffer[serial], '#'); /*  polybox data ?? */ /* CARE , check if the FULL data contain #, not only the begining... @todo */
-			  if ( pos != NULL )
-			    {
-			      //  eprintf("=====> To Poly \n");
-			      color_text(GREEN);
-			      write( 1, input_buffer[serial], current_size[serial] );
-			      color_reset();
-			      write( fds[poly].fd, input_buffer[serial], current_size[serial] );
-			    }
-			  else /* rest for printer software == prevent add of of code. Since polybox code are always prefixed with # */ 
-			    {
-			      //  eprintf("=====> To Printer \n");
-			      color_text(BLUE);
-			      write( 1, input_buffer[serial], current_size[serial] );
-			      color_reset();
-			      write( fds[printer].fd, input_buffer[serial], current_size[serial] );
-			    }
-			  clear_stream(serial);
-			}
-		      else if( i == poly )
-			{
-			  //			  eprintf("[poly]\n");
-			  color_text(YELLOW);
-			  write( 1, input_buffer[poly], current_size[poly] );
-			  color_reset();
-			  write( fds[serial].fd, input_buffer[poly], current_size[poly] );
-			  clear_stream(poly);
-			}
+				while ( read_line )
+				{
+					pos_eol = strchr( &input_buffer[i][current_pos[i]], '\n');
+					if ( pos_eol != NULL )
+					{
+						process_line( i, &input_buffer[i][current_pos[i]], pos_eol-(&input_buffer[i][current_pos[i]])+1 );
+						current_pos[i] +=pos_eol-(&input_buffer[i][current_pos[i]])+1;
+					}
+					else
+					{
+						read_line = 0;
+					}
+				}
+				if ( data_state == DATA_END  ) 
+				{
+					clear_stream(i);
+				}
 		    }
 		  else if( data_state == DATA_WAITING_MORE )
 		    {
