@@ -6,6 +6,10 @@ VERBOSE=no
 
 
 ifeq ($(VERBOSE), yes)
+        CFLAGS+= -DVERBOSE
+endif
+
+ifeq ($(COLOR), yes)
         CFLAGS+= -DVERBOSE -DCOLOR
 endif
 
@@ -20,6 +24,10 @@ all: $(OBJ)
 verbose:
 	@make clean
 	@make VERBOSE=yes
+
+color:
+	@make clean
+	@make COLOR=yes
 
 gnuplot:
 	@make clean

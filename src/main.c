@@ -42,6 +42,12 @@
  #define VERBOSE 1
 #endif
 
+#ifndef COLOR
+ #define COLOR 0
+#else
+ #define COLOR 1
+#endif
+
 /*  Debug printf to stderr.   */
 #define eprintf(fmt, ...) \
             do { if (VERBOSE) fprintf (stdout, fmt, ##__VA_ARGS__) ; } while (0)
@@ -169,11 +175,12 @@ void process_line( int i /* file descriptor */, char* line, int size )
 	  dest = fds[serial].fd;
 	}
 	write( dest, line, size );
-	
+#if VERBOSE == 1
 	color_text( color );
 	write( 1, line, size );
 	eprintf(".");
 	color_reset();
+#endif
 }
 
 int read_stream(int fd_id)
@@ -375,9 +382,11 @@ int main(int argc, char* argv[])
 		  else if( data_state == DATA_WAITING_MORE )
 		    {
 		      // write( 1, input_buffer[serial], current_size[serial] );
+#ifdef VERBOSE == 1
 		      color_text(CYAN);
 		      eprintf("   > Waiting...[%d]\n", current_size[i]);
 		      color_reset();
+#endif
 		    }
 		  else if ( data_state == DATA_CLOSED )
 		    {
