@@ -59,7 +59,7 @@ char tmp_buffer[BUFFER_SIZE];
 int current_size[FD_NUMBER]={0,0,0};
 int current_pos[FD_NUMBER]={0,0,0};
 int eol_pos[FD_NUMBER]={0,0,0};
-int baudrate = 38400;
+int baudrate = 115200;
 //115200;
 //int baudrate = 76800;
 //int baudrate = 9600;
